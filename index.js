@@ -46,16 +46,30 @@ async function run() {
         res.send(result)
     })
 
-    app.post('/job-applications', async(req, res) => {
-        const application =req.body;
+    app.post('/job-applications', async (req, res) => {
+        const application = req.body;
         console.log(application)
         const result = await JobApplication.insertOne(application)
         res.send(result)
     })
-    app.get('/job-applications', async(req, res) => {
-        const email =req.query.email
-        const query={applicant_email: email}
+    app.get('/job-applications', async (req, res) => {
+        const email = req.query.email
+        const query = { applicant_email: email }
         const result = await JobApplication.find(query).toArray()
+
+        // fokira away add data
+        for (const application of result) {
+            console.log(application.job_id)
+            const query1 = { _id: new ObjectId(application.job_id) }
+            const job = await JobCollection.findOne(query1)
+            if (job) {
+                application.title = job.title;
+                application.company = job.company;
+                application.company_logo = job.company_logo;
+                application.location = job.location;
+            }
+        }
+
         res.send(result)
     })
 
