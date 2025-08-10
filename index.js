@@ -34,10 +34,18 @@ async function run() {
     const JobCollection = client.db("JobPotal").collection("jobs");
     const JobApplication = client.db("JobPotal").collection("job-applications");
 
+    app.post('/jobs', async (req, res) => {
+        const job = req.body;
+        console.log(job)
+        const result = await JobCollection.insertOne(job)
+        res.send(result)
+    });
+
     app.get('/jobs', async (req, res) => {
         const result = await JobCollection.find().toArray()
         res.send(result)
-    })
+    });
+    
     app.get('/jobs/:id', async (req, res) => {
         const id = req.params.id
         console.log(id)
