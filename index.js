@@ -1,11 +1,14 @@
 const express = require('express')
 const cors = require('cors')
+const jwt = require('jsonwebtoken')
+const cookieParser = require('cookie-parser')
 require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 5000;
 
 app.use(cors())
 app.use(express.json())
+app.use(cookieParser())
 
 
 
@@ -33,6 +36,18 @@ async function run() {
 
     const JobCollection = client.db("JobPotal").collection("jobs");
     const JobApplication = client.db("JobPotal").collection("job-applications");
+
+    app.post('/jwt', (req, res) => {
+        const user= req.body
+        const token= jwt.sign(user, process.env.JWT_secret, {expiresIn: '1h'})
+        res.cookie('token',token,{
+            httpOnly: true,
+            secure:false,
+        })
+        .send({sucess: true})
+    })
+
+
 
     app.post('/jobs', async (req, res) => {
         const job = req.body;
@@ -117,10 +132,10 @@ async function run() {
         res.send(result)
     });
 
-    app.patch('/job-applications/:id', async(req, res) => {
+    app.patch('/job-applications/:id', async (req, res) => {
         const id = req.params.id;
         const data = req.body;
-        console.log(id,data)
+        console.log(id, data)
         const query = { _id: new ObjectId(id) }
         const updateDoc = {
             $set: {
