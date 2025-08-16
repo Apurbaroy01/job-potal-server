@@ -6,9 +6,36 @@ require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 5000;
 
-app.use(cors())
+app.use(cors({
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+}));
 app.use(express.json())
 app.use(cookieParser())
+
+const loger = (req, res, next) => {
+    console.log("insode the logger middleware");
+    next();
+};
+
+
+const verifyToken = (req, res, next) => {
+    const token = req.cookies?.token;
+    if (!token) {
+        return res.status(401).send({ error: true, message: "No token found" });
+    }
+
+    jwt.verify(token, process.env.JWT_secret, (err, decoded) => {
+        if (err) {
+            console.log("JWT Verify Error:", err.message); // debug
+            return res.status(403).send({ error: true, message: "Invalid token" });
+        }
+        req.user = decoded; // decoded data save
+        next();
+    });
+};
+
 
 
 
@@ -38,14 +65,16 @@ async function run() {
     const JobApplication = client.db("JobPotal").collection("job-applications");
 
     app.post('/jwt', (req, res) => {
-        const user= req.body
-        const token= jwt.sign(user, process.env.JWT_secret, {expiresIn: '1h'})
-        res.cookie('token',token,{
+        const user = req.body; // user.email আছে ধরে নাও
+        const token = jwt.sign({ email: user.email }, process.env.JWT_secret, { expiresIn: '1h' });
+
+        res.cookie('token', token, {
             httpOnly: true,
-            secure:false,
-        })
-        .send({sucess: true})
-    })
+            secure: false,   // লোকালে false
+            sameSite: "lax", // লোকালে lax
+        }).send({ success: true, token }); // token debug এর জন্য পাঠানো
+    });
+
 
 
 
@@ -56,7 +85,8 @@ async function run() {
         res.send(result)
     });
 
-    app.get('/jobs', async (req, res) => {
+    app.get('/jobs', loger, async (req, res) => {
+        console.log('now inside the api callback')
         const email = req.query.email;
         let query = {};
         if (email) {
@@ -104,7 +134,7 @@ async function run() {
 
         res.send(result)
     })
-    app.get('/job-applications', async (req, res) => {
+    app.get('/job-applications', verifyToken, async (req, res) => {
         const email = req.query.email
         const query = { applicant_email: email }
         const result = await JobApplication.find(query).toArray()
