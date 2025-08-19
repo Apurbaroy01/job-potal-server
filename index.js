@@ -8,33 +8,28 @@ const port = process.env.PORT || 5000;
 
 app.use(cors({
     origin: "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
 }));
 app.use(express.json())
 app.use(cookieParser())
 
-const loger = (req, res, next) => {
-    console.log("insode the logger middleware");
-    next();
-};
-
 
 const verifyToken = (req, res, next) => {
-    const token = req.cookies?.token;
+    const token = req.cookies.token;
+    console.log('token', token)
     if (!token) {
-        return res.status(401).send({ error: true, message: "No token found" });
+        return res.status(401).send({ message: "no token" })
     }
-
-    jwt.verify(token, process.env.JWT_secret, (err, decoded) => {
-        if (err) {
-            console.log("JWT Verify Error:", err.message); // debug
-            return res.status(403).send({ error: true, message: "Invalid token" });
+    jwt.verify(token, process.env.JWT_secret, (err, decoded)=>{
+        if(err){
+            res.status(403).send({messehe: "invalid token"})
         }
-        req.user = decoded; // decoded data save
+        req.user= decoded;
         next();
-    });
+    })
 };
+
 
 
 
@@ -64,16 +59,30 @@ async function run() {
     const JobCollection = client.db("JobPotal").collection("jobs");
     const JobApplication = client.db("JobPotal").collection("job-applications");
 
-    app.post('/jwt', (req, res) => {
-        const user = req.body; // user.email আছে ধরে নাও
-        const token = jwt.sign({ email: user.email }, process.env.JWT_secret, { expiresIn: '1h' });
+  
 
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: false,   // লোকালে false
-            sameSite: "lax", // লোকালে lax
-        }).send({ success: true, token }); // token debug এর জন্য পাঠানো
+    app.post('/jwt', (req, res) => {
+        const user = req.body;
+        console.log(user)
+        const token = jwt.sign(user, process.env.JWT_secret, { expiresIn: '5h' })
+        res
+            .cookie('token', token, {
+                httpOnly: true,
+                secure: false,
+                sameSite: 'strict'
+            })
+            .send({ success: true, token })
     });
+
+    app.post('/logout',(req, res)=>{
+        res
+        .clearCookie('token',{
+            httpOnly:true,
+            secure:false,
+            sameSite:"strict"
+        })
+        .send({logout: 'successfuly'})
+    })
 
 
 
@@ -85,8 +94,7 @@ async function run() {
         res.send(result)
     });
 
-    app.get('/jobs', loger, async (req, res) => {
-        console.log('now inside the api callback')
+    app.get('/jobs', async (req, res) => {
         const email = req.query.email;
         let query = {};
         if (email) {
@@ -138,8 +146,9 @@ async function run() {
         const email = req.query.email
         const query = { applicant_email: email }
 
-        if(req.user?.email !==req.query.email) {
-            return res.status(403).send({ error: true, message: "Forbidden access" });
+
+        if(req.user?.email !== req.query.email){
+            return res.status(403).send({error: true, message:"invalid email"})
         }
 
         const result = await JobApplication.find(query).toArray()
